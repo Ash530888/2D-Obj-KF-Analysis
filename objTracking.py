@@ -9,12 +9,11 @@
 import cv2
 from Detector import detect
 from KalmanFilter import KalmanFilter
-from sklearn.metrics import mean_squared_error
 import numpy as np
 import matplotlib.pyplot as plt
 import math
 
-def main(fileName='video_randomball.avi', missing_handled='no', u_x=1, u_y=1, Gamma=np.array([[5,0],[0,7]]), Sigma=np.array([[5,0],[0,5]])):
+def main(fileName='video_randomball.avi', missing_handled='no', u_x=1, u_y=1, Gamma=np.array([[100,100],[100,100]]), Sigma=np.array([[100,100],[100,100]])):
 
     # Create opencv video capture object
     VideoCap = cv2.VideoCapture(fileName)
@@ -144,16 +143,22 @@ def main(fileName='video_randomball.avi', missing_handled='no', u_x=1, u_y=1, Ga
         
     return (measured, contaminated, predicted, filtered, total, sd_y)
 
+def rmse(x, x2):
+    tot=0
+    for i in range(len(x)):
+        tot+=(x[i]-x2[i])
+
+    return math.sqrt(abs(tot)/len(x))
+
 
 def differentNoises():
-    noises_x=[np.array([[100,0],[0,80]]), np.array([[5,0],[0,7]]), np.array([[1,0],[0,0.5]]),  np.array([[10,0],[0,9]]),  np.array([[50,0],[0,67]]),  np.array([[70,0],[0,20]])]
-    noises_y=[np.array([[5,0],[0,5]]),np.array([[0.05,0],[0,0.05]]), np.array([[0.07,0],[0,0.07]]), np.array([[0.1,0],[0,0.1]]), np.array([[0.5,0],[0,0.5]]), np.array([[1,0],[0,1]])]
-
+    noises=[np.array([[100,100],[100,100]]), np.array([[200,200],[200,200]]),  np.array([[300,300],[300,300]]),  np.array([[400,400],[400,400]]),  np.array([[500,500],[500,500]]), np.array([[600,600],[600,600]]), np.array([[1000,1000],[1000,1000]])]
+    
     rmse_x=[]
     rmse_y=[]
     
-    for i in range(6):
-        measured, contaminated, predicted, filtered, total, sd_y=main( Gamma=noises_x[i], Sigma=noises_y[i])
+    for i in range(7):
+        measured, contaminated, predicted, filtered, total, sd_y=main( Gamma=noises[i], Sigma=noises[i])
         
         predicted = predicted[np.logical_not(np.isnan(predicted))].reshape(2,-1)
         filtered = filtered[np.logical_not(np.isnan(filtered))].reshape(2,-1)
@@ -172,27 +177,26 @@ def differentNoises():
         plt.legend()
         plt.show()
 
-        rmse_f=mean_squared_error(measured[0,:], filtered[0,:len(measured[0,:])], squared=False)
-        rmse_p=mean_squared_error(measured[0,:], predicted[0,:len(measured[0,:])], squared=False)
+        rmse_f=rmse(measured[0,:], filtered[0,:len(measured[0,:])])
+        rmse_p=rmse(measured[0,:], predicted[0,:len(measured[0,:])])
 
-        print("measured vs predicted RMSE when noise_x= ",noises_x[i][0][0],": ",rmse_f)
+        print("measured vs predicted RMSE of x when noise= ",noises[i][0][0],": ",rmse_f)
 
         rmse_x.append(rmse_f)
 
-        rmse_f=mean_squared_error(measured[1,:], filtered[1,:len(measured[0,:])], squared=False)
+        rmse_f=rmse(measured[1,:], filtered[1,:len(measured[0,:])])
 
         rmse_y.append(rmse_f)
 
-        print("measured vs filtered RMSE when noise_y= ",noises_y[i][0][0],": ",rmse_f)
+        print("measured vs filtered RMSE  of y when noise= ",noises[i][0][0],": ",rmse_f)
 
-        noises_x[i]=noises_x[i][0][0]
-        noises_y[i]=noises_y[i][0][0]
+        noises[i]=math.sqrt(noises[i][0][0])
 
     plt.suptitle("RMSE vs noise")
     plt.xlabel("noise")
     plt.ylabel("RMSE")
-    plt.scatter(noises_x, rmse_x, label="x")
-    plt.scatter(noises_y, rmse_y, label="y")
+    plt.scatter(noises, rmse_x, label="x")
+    plt.scatter(noises, rmse_y, label="y")
     plt.legend()
     plt.show()
 
@@ -219,20 +223,20 @@ def differentAcc():
         plt.xlabel('t')
         plt.ylabel('Position x')
         plt.suptitle(titles[i])
+        t=np.arange(len(contaminated[i][0,:]))
+        plt.plot(t, contaminated[i][0,:], 'r', label='contaminated')
         t=np.arange(measured.shape[1])
         plt.plot(t, measured[0,:], label='measured')
         plt.fill_between(t, sd_y, alpha=0.2)
         t=np.arange(len(predicted[i][0,:]))
-        plt.plot(t, predicted[i][0,:], 'r', label='predicted')
+        plt.plot(t, predicted[i][0,:], 'b', label='predicted')
         t=np.arange(len(filtered[i][0,:]))
         plt.plot(t, filtered[i][0,:], 'g', label='filtered')
-        t=np.arange(len(contaminated[i][0,:]))
-        plt.plot(t, contaminated[i][0,:], 'b', label='contaminated')
         plt.legend()
         plt.show()
 
-        rmse_f=mean_squared_error(measured[0,:], filtered[i][0,:len(measured[0,:])], squared=False)
-        rmse_p=mean_squared_error(measured[0,:], predicted[i][0,:len(measured[0,:])], squared=False)
+        rmse_f=rmse(measured[0,:], filtered[i][0,:len(measured[0,:])])
+        rmse_p=rmse(measured[0,:], predicted[i][0,:len(measured[0,:])])
 
         print("measured vs filtered RMSE for ",titles[i],": ",rmse_f)
         print("measured vs predicted RMSE for ",titles[i],": ",rmse_p)
@@ -240,20 +244,20 @@ def differentAcc():
         plt.xlabel('t')
         plt.ylabel('Position y')
         plt.suptitle(titles[i])
+        t=np.arange(len(contaminated[i][1,:]))
+        plt.plot(t, contaminated[i][1,:], 'r', label='contaminated')
         t=np.arange(measured.shape[1])
         plt.plot(t, measured[1,:], label='measured')
         plt.fill_between(t, sd_y, alpha=0.2)
         t=np.arange(len(predicted[i][1,:]))
-        plt.plot(t, predicted[i][1,:], 'r', label='predicted')
+        plt.plot(t, predicted[i][1,:], 'b', label='predicted')
         t=np.arange(len(filtered[i][1,:]))
         plt.plot(t, filtered[i][1,:], 'g', label='filtered')
-        t=np.arange(len(contaminated[i][1,:]))
-        plt.plot(t, contaminated[i][1,:], 'b', label='contaminated')
         plt.legend()
         plt.show()
         
-        rmse_f=mean_squared_error(measured[1,:], filtered[i][1,:len(measured[1,:])], squared=False)
-        rmse_p=mean_squared_error(measured[1,:], predicted[i][1,:len(measured[1,:])], squared=False)
+        rmse_f=rmse(measured[1,:], filtered[i][1,:len(measured[1,:])])
+        rmse_p=rmse(measured[1,:], predicted[i][1,:len(measured[1,:])])
 
         print("measured vs filtered RMSE for ",titles[i],": ",rmse_f)
         print("measured vs predicted RMSE for ",titles[i],": ",rmse_p)
@@ -265,8 +269,8 @@ def differentN(measured, estimated, predicted):
 
     for i in range(measured.shape[1]+1,302, -15):
         N.append(i)
-        e=mean_squared_error(measured[:i], estimated[:i], squared=False)
-        p=mean_squared_error(measured[:i], predicted[:i], squared=False)
+        e=rmse(measured[:i], estimated[:i])
+        p=rmse(measured[:i], predicted[:i])
         rmse_e.append(e)
         rmse_p.append(p)
 
@@ -287,8 +291,8 @@ def missingObH():
     filtered = filtered[np.logical_not(np.isnan(measured))]
     predicted = predicted[np.logical_not(np.isnan(measured))]
     
-    rmse_f=mean_squared_error(measured2[0:], filtered[0:], squared=False)
-    rmse_p=mean_squared_error(measured2[0:], predicted[0:], squared=False)
+    rmse_f=rmse(measured2[0:], filtered[0:])
+    rmse_p=rmse(measured2[0:], predicted[0:])
 
     print("Missing object handled measured vs filtered RMSE: ", rmse_f)
     print("Missing object handled measured vs predicted RMSE: ", rmse_p)
@@ -303,8 +307,8 @@ def missingObNH():
     predicted = predicted[np.logical_not(np.isnan(predicted))]
     filtered = filtered[np.logical_not(np.isnan(filtered))]
     
-    rmse_f=mean_squared_error(measured[0:], filtered[0:], squared=False)
-    rmse_p=mean_squared_error(measured[0:], predicted[0:], squared=False)
+    rmse_f=rmse(measured[0:], filtered[0:])
+    rmse_p=rmse(measured[0:], predicted[0:])
 
     print("Missing object not handled measured vs filtered RMSE: ", rmse_f)
     print("Missing object not handled measured vs predicted RMSE: ", rmse_p)
@@ -318,11 +322,12 @@ def plotPositions(measured, filtered, predicted, contaminated, total, sd_y):
     plt.xlabel('time')
     plt.ylabel('position y')
 
-    plt.plot(t, measured[1,:], label='measured', c='b', linewidth=1.5)
+    
+    plt.plot(t, contaminated[1,:], label='contaminated', c='r', linewidth=0.5)
+    plt.plot(t, measured[1,:], label='measured', c='b', linewidth=0.5)
     plt.fill_between(t, sd_y, alpha=0.2)
-    plt.plot(t, predicted[1,:], label='predicted', c='r', linewidth=0.5)
+    plt.plot(t, predicted[1,:], label='predicted', c='k', linewidth=0.5)
     plt.plot(t, filtered[1,:], label='filtered', c='g', linewidth=0.5)
-    plt.plot(t, contaminated[1,:], label='contaminated', c='k', linewidth=0.5)
     plt.legend()
     plt.show()
 
@@ -330,11 +335,11 @@ def plotPositions(measured, filtered, predicted, contaminated, total, sd_y):
     plt.xlabel('time')
     plt.ylabel('position x')
 
-    plt.plot(t, measured[0,:], label='measured', c='b', linewidth=1.5)
+    plt.plot(t, contaminated[0,:], label='contaminated', c='r', linewidth=0.5)
+    plt.plot(t, measured[0,:], label='measured', c='b', linewidth=0.5)
     plt.fill_between(t, sd_y, alpha=0.2)
-    plt.plot(t, predicted[0,:], label='predicted', c='r', linewidth=0.5)
+    plt.plot(t, predicted[0,:], label='predicted', c='k', linewidth=0.5)
     plt.plot(t, filtered[0,:], label='filtered', c='g', linewidth=0.5)
-    plt.plot(t, contaminated[0,:], label='contaminated', c='k', linewidth=0.5)
     plt.legend()
     plt.show()
     
@@ -343,17 +348,20 @@ if __name__ == "__main__":
 
     differentNoises()
     
-    missingObH()
-    
     differentAcc()
 
     missingObNH()
 
+    missingObH()
+
     measured, contaminated, predicted, filtered, total, sd_y=main()
 
-    plotPositions(measured, filtered, predicted, contaminated, total, sd_y)
-
     differentN(measured, estimated, predicted)
+    
+
+    plotPositions(measured, filtered, predicted, contaminated, total, sd_y)
+    
+
     
 
     
